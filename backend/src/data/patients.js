@@ -1,8 +1,16 @@
-export const patients = [
+const patients = [
   {
     id: "1",
-    name: "Demo Patient",
-    age: 28,
-    condition: "Diabetes"
+    name: "Riya Patel",
+    condition: "Diabetes (Long-term)",
+    doctorId: "D1"
+  },
+  {
+    id: "2",
+    name: "John Doe",
+    condition: "Mental Health",
+    doctorId: "D1"
   }
 ];
+
+export default patients;
