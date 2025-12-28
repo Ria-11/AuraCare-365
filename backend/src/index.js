@@ -1,21 +1,23 @@
 import express from "express";
-import cors from "cors";
+import logsRouter from "./routes/logs.js";
+import patientRoutes from "./routes/patientRoutes.js";
+
+
+console.log("🔥 INDEX.JS FILE LOADED");
 
 const app = express();
-
-app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.send("AuraCare 365 Backend Running");
+// mount logs router
+app.use("/api/logs", logsRouter);
+app.use("/api/patients", patientRoutes);
+
+
+// sanity check
+app.get("/api/test", (req, res) => {
+  res.json({ message: "TEST ROUTE WORKING" });
 });
 
-app.get("/api/health", (req, res) => {
-  res.json({ status: "ok", service: "AuraCare 365" });
-});
-
-const PORT = 5000;
-
-app.listen(PORT, () => {
-  console.log(`✅ AuraCare backend running on http://localhost:${PORT}`);
+app.listen(5000, () => {
+  console.log("🚀 SERVER STARTED ON 5000");
 });
