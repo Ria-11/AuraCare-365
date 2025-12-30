@@ -1,20 +1,27 @@
 import express from "express";
-import  patients  from "../data/patients.js";
+import Patient from "../models/Patient.js";
 
 const router = express.Router();
 
 // GET all patients
-router.get("/", (req, res) => {
-  res.json(patients);
+router.get("/", async (req, res) => {
+  try {
+    const patients = await Patient.find();
+    res.json(patients);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// GET patient by ID
-router.get("/:id", (req, res) => {
-  const patient = patients.find(p => p.id === req.params.id);
-  if (!patient) {
-    return res.status(404).json({ message: "Patient not found" });
+// POST new patient
+router.post("/", async (req, res) => {
+  try {
+    const patient = new Patient(req.body);
+    await patient.save();
+    res.status(201).json(patient);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
   }
-  res.json(patient);
 });
 
 export default router;

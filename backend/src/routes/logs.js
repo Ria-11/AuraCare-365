@@ -1,18 +1,8 @@
 import express from "express";
 import patients from "../data/patients.js";
+import logs from "../data/logs.js"; // ✅ single source
 
 const router = express.Router();
-
-// In-memory logs (MVP only)
-let logs = [
-  {
-    patientId: "1",
-    date: "2025-12-01",
-    physical: 3,
-    mental: 2,
-    social: 4
-  }
-];
 
 // 🔹 GET logs for a patient (ONLY if patient exists)
 router.get("/:patientId", (req, res) => {
@@ -24,6 +14,7 @@ router.get("/:patientId", (req, res) => {
   }
 
   const patientLogs = logs.filter(log => log.patientId === patientId);
+
   res.json({
     patient: patientExists,
     logs: patientLogs
@@ -41,7 +32,7 @@ router.post("/:patientId", (req, res) => {
   }
 
   const newLog = { patientId, date, physical, mental, social };
-  logs.push(newLog);
+  logs.push(newLog); // MVP memory push
 
   res.status(201).json({
     message: "Daily health log added",
