@@ -2,29 +2,30 @@ import mongoose from "mongoose";
 
 const healthLogSchema = new mongoose.Schema(
   {
-    patientId: {
-      type: String,
-      required: true,
+    patientId: { type: String, required: true },
+
+    mentalHealth: {
+      mood: { type: Number, required: true },
+      stress: { type: Number, required: true },
+      anxiety: { type: Number, required: true },
     },
 
-    mental: {
-      mood: Number,
-      stress: Number,
-      anxiety: Number,
+    physicalHealth: {
+      sleep: { type: Number, required: true },
+      diet: { type: Number, required: true },
+      exercise: { type: Number, required: true },
     },
 
-    physical: {
-      sleepHours: Number,
-      exerciseMinutes: Number,
-      dietQuality: Number,
+    socialWellBeing: {
+      interaction: { type: Number, required: true },
+      loneliness: { type: Number, required: true },
     },
 
-    social: {
-      interactionLevel: Number,
-      lonelinessLevel: Number,
-    },
+    date: { type: Date, default: Date.now },
   },
   { timestamps: true }
 );
 
-export default mongoose.model("HealthLog", healthLogSchema);
+const HealthLog = mongoose.model("HealthLog", healthLogSchema);
+
+export default HealthLog;
