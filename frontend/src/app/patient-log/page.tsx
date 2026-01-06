@@ -1,30 +1,40 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import {
+  submitHealthLog,
+  fetchHealthLogs,
+  getHealthInsight,
+} from "../lib/api";
+import { getPatientId } from "../lib/auth";
+
 import MentalHealthForm from "../components/MentalHealthForm";
 import PhysicalHealthForm from "../components/PhysicalHealthForm";
 import SocialWellBeingForm from "../components/SocialWellBeingForm";
 import HealthTrendChart from "../components/HealthTrendChart";
-import { submitHealthLog, fetchHealthLogs } from "../lib/api";
-import { getPatientId } from "../lib/auth";
 
 export default function PatientLogPage() {
+  const patientId = getPatientId();
+
   const [mental, setMental] = useState({ mood: "", stress: "", anxiety: "" });
   const [physical, setPhysical] = useState({ sleep: "", diet: "", exercise: "" });
   const [social, setSocial] = useState({ interaction: "", loneliness: "" });
+
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  const patientId = getPatientId();
+  // 🔹 AI states
+  const [insights, setInsights] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
-  // 🔹 Fetch logs
+  // 🔹 Load logs
   const loadLogs = async () => {
     try {
       const data = await fetchHealthLogs(patientId);
       setLogs(data);
-    } catch (err: any) {
-      console.error(err.message);
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -32,25 +42,21 @@ export default function PatientLogPage() {
     loadLogs();
   }, []);
 
-  // 🔹 Sort logs OLD → NEW for charts
+  // 🔹 Sorted logs
   const sortedLogs = [...logs].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
 
-  // 🔹 Chart labels
-  const labels = sortedLogs.map((log) =>
-    new Date(log.date).toLocaleDateString()
+  const labels = sortedLogs.map((l) =>
+    new Date(l.date).toLocaleDateString()
   );
 
-  // 🔹 Chart datasets
   const mentalDataset = [
     {
       label: "Mood",
       data: sortedLogs.map((l) => Number(l.mentalHealth?.mood)),
       borderColor: "#2563eb",
-      backgroundColor: "rgba(37,99,235,0.2)",
       tension: 0.3,
-      fill: true,
     },
     {
       label: "Stress",
@@ -90,15 +96,20 @@ export default function PatientLogPage() {
     },
   ];
 
-  // 🔹 Submit handler
+  // 🔹 Submit health log
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
 
     if (
-      !mental.mood || !mental.stress || !mental.anxiety ||
-      !physical.sleep || !physical.diet || !physical.exercise ||
-      !social.interaction || !social.loneliness
+      !mental.mood ||
+      !mental.stress ||
+      !mental.anxiety ||
+      !physical.sleep ||
+      !physical.diet ||
+      !physical.exercise ||
+      !social.interaction ||
+      !social.loneliness
     ) {
       setMessage("Please fill all fields");
       return;
@@ -106,25 +117,46 @@ export default function PatientLogPage() {
 
     setLoading(true);
 
-    const payload = {
-      patientId,
-      mentalHealth: mental,
-      physicalHealth: physical,
-      socialWellBeing: social,
-      date: new Date().toISOString(),
-    };
-
     try {
-      const res = await submitHealthLog(payload);
-      setMessage(res.message || "Submitted successfully!");
+      await submitHealthLog({
+        patientId,
+        mentalHealth: mental,
+        physicalHealth: physical,
+        socialWellBeing: social,
+        date: new Date().toISOString(),
+      });
+
+      setMessage("Submitted successfully!");
       setMental({ mood: "", stress: "", anxiety: "" });
       setPhysical({ sleep: "", diet: "", exercise: "" });
       setSocial({ interaction: "", loneliness: "" });
+
       await loadLogs();
     } catch (err: any) {
-      setMessage(err.message || "Submission failed");
+      setMessage("Submission failed");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 🔹 AI Insight handler
+  const handleGetInsights = async () => {
+    setAiLoading(true);
+    setInsights([]);
+
+    try {
+      const res = await getHealthInsight({
+        patientId,
+        mentalHealth: mental,
+        physicalHealth: physical,
+        socialWellBeing: social,
+      });
+
+      setInsights(res.insights || []);
+    } catch (err) {
+      setInsights(["Failed to generate insights"]);
+    } finally {
+      setAiLoading(false);
     }
   };
 
@@ -140,78 +172,43 @@ export default function PatientLogPage() {
 
         <button
           type="submit"
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:opacity-50"
+          className="bg-blue-600 text-white px-4 py-2 rounded"
           disabled={loading}
         >
           {loading ? "Submitting..." : "Submit"}
         </button>
 
-        {message && (
-          <p className={`mt-2 ${message.includes("success") ? "text-green-600" : "text-red-600"}`}>
-            {message}
-          </p>
-        )}
+        <button
+          type="button"
+          onClick={handleGetInsights}
+          className="bg-purple-600 text-white px-4 py-2 rounded ml-2"
+          disabled={aiLoading}
+        >
+          {aiLoading ? "Analyzing..." : "Get AI Insights"}
+        </button>
+
+        {message && <p className="text-sm mt-2">{message}</p>}
       </form>
 
-      {/* 🔹 CHARTS */}
-      {sortedLogs.length > 0 && (
-        <div className="space-y-8 mt-10">
-          <HealthTrendChart
-            title="Mental Health Trends"
-            labels={labels}
-            datasets={mentalDataset}
-          />
-          <HealthTrendChart
-            title="Physical Health Trends"
-            labels={labels}
-            datasets={physicalDataset}
-          />
-          <HealthTrendChart
-            title="Social Well-being Trends"
-            labels={labels}
-            datasets={socialDataset}
-          />
+      {/* 🔹 AI INSIGHTS */}
+      {insights.length > 0 && (
+        <div className="bg-purple-50 border border-purple-300 p-4 rounded">
+          <h2 className="font-semibold text-purple-700">AI Health Insights</h2>
+          <ul className="list-disc pl-5 mt-2 text-sm">
+            {insights.map((i, idx) => (
+              <li key={idx}>{i}</li>
+            ))}
+          </ul>
         </div>
       )}
 
-      {/* 🔹 HISTORY TABLE */}
-      <h2 className="text-xl font-semibold mt-10">Previous Logs</h2>
-
-      {logs.length === 0 ? (
-        <p>No logs found.</p>
-      ) : (
-        <table className="w-full border mt-2 text-sm">
-          <thead className="bg-gray-200">
-            <tr>
-              <th className="border px-2 py-1">Date</th>
-              <th className="border px-2 py-1">Mood</th>
-              <th className="border px-2 py-1">Stress</th>
-              <th className="border px-2 py-1">Anxiety</th>
-              <th className="border px-2 py-1">Sleep</th>
-              <th className="border px-2 py-1">Diet</th>
-              <th className="border px-2 py-1">Exercise</th>
-              <th className="border px-2 py-1">Interaction</th>
-              <th className="border px-2 py-1">Loneliness</th>
-            </tr>
-          </thead>
-          <tbody>
-            {logs.map((log) => (
-              <tr key={log._id}>
-                <td className="border px-2 py-1">
-                  {new Date(log.date).toLocaleDateString()}
-                </td>
-                <td className="border px-2 py-1">{log.mentalHealth?.mood}</td>
-                <td className="border px-2 py-1">{log.mentalHealth?.stress}</td>
-                <td className="border px-2 py-1">{log.mentalHealth?.anxiety}</td>
-                <td className="border px-2 py-1">{log.physicalHealth?.sleep}</td>
-                <td className="border px-2 py-1">{log.physicalHealth?.diet}</td>
-                <td className="border px-2 py-1">{log.physicalHealth?.exercise}</td>
-                <td className="border px-2 py-1">{log.socialWellBeing?.interaction}</td>
-                <td className="border px-2 py-1">{log.socialWellBeing?.loneliness}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* 🔹 CHARTS */}
+      {sortedLogs.length > 0 && (
+        <div className="space-y-8">
+          <HealthTrendChart title="Mental Health Trends" labels={labels} datasets={mentalDataset} />
+          <HealthTrendChart title="Physical Health Trends" labels={labels} datasets={physicalDataset} />
+          <HealthTrendChart title="Social Well-being Trends" labels={labels} datasets={socialDataset} />
+        </div>
       )}
     </div>
   );
