@@ -24,15 +24,17 @@ export default function PatientLogPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  // 🔹 AI states
-  const [insights, setInsights] = useState<string[]>([]);
+  // AI states
   const [aiLoading, setAiLoading] = useState(false);
+  const [riskLevel, setRiskLevel] = useState("");
+  const [insights, setInsights] = useState<string[]>([]);
+  const [recommendation, setRecommendation] = useState("");
 
-  // 🔹 Load logs
+  // Load logs
   const loadLogs = async () => {
     try {
       const data = await fetchHealthLogs(patientId);
-      setLogs(data);
+      setLogs(data || []);
     } catch (err) {
       console.error(err);
     }
@@ -42,7 +44,7 @@ export default function PatientLogPage() {
     loadLogs();
   }, []);
 
-  // 🔹 Sorted logs
+  // Sort logs by date
   const sortedLogs = [...logs].sort(
     (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
   );
@@ -96,7 +98,7 @@ export default function PatientLogPage() {
     },
   ];
 
-  // 🔹 Submit health log
+  // Submit daily log
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage("");
@@ -132,29 +134,30 @@ export default function PatientLogPage() {
       setSocial({ interaction: "", loneliness: "" });
 
       await loadLogs();
-    } catch (err: any) {
+    } catch {
       setMessage("Submission failed");
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 AI Insight handler
+  // Get AI insights (IMPORTANT FIX)
   const handleGetInsights = async () => {
     setAiLoading(true);
     setInsights([]);
+    setRiskLevel("");
+    setRecommendation("");
 
     try {
       const res = await getHealthInsight({
-        patientId,
-        mentalHealth: mental,
-        physicalHealth: physical,
-        socialWellBeing: social,
+        logs: sortedLogs,
       });
 
+      setRiskLevel(res.riskLevel);
       setInsights(res.insights || []);
-    } catch (err) {
-      setInsights(["Failed to generate insights"]);
+      setRecommendation(res.recommendation || "");
+    } catch {
+      setInsights(["AI analysis failed. Please try again."]);
     } finally {
       setAiLoading(false);
     }
@@ -164,7 +167,6 @@ export default function PatientLogPage() {
     <div className="max-w-3xl mx-auto p-4 space-y-6">
       <h1 className="text-2xl font-bold">Daily Health Log</h1>
 
-      {/* 🔹 FORM */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <MentalHealthForm mental={mental} setMental={setMental} />
         <PhysicalHealthForm physical={physical} setPhysical={setPhysical} />
@@ -182,7 +184,7 @@ export default function PatientLogPage() {
           type="button"
           onClick={handleGetInsights}
           className="bg-purple-600 text-white px-4 py-2 rounded ml-2"
-          disabled={aiLoading}
+          disabled={aiLoading || sortedLogs.length === 0}
         >
           {aiLoading ? "Analyzing..." : "Get AI Insights"}
         </button>
@@ -190,24 +192,52 @@ export default function PatientLogPage() {
         {message && <p className="text-sm mt-2">{message}</p>}
       </form>
 
-      {/* 🔹 AI INSIGHTS */}
+      {/* AI RESULT */}
       {insights.length > 0 && (
-        <div className="bg-purple-50 border border-purple-300 p-4 rounded">
-          <h2 className="font-semibold text-purple-700">AI Health Insights</h2>
-          <ul className="list-disc pl-5 mt-2 text-sm">
+        <div className="bg-purple-50 border border-purple-300 p-4 rounded space-y-2">
+          <h2 className="font-semibold text-purple-700">
+            AI Health Assessment
+          </h2>
+
+          {riskLevel && (
+            <p>
+              <strong>Risk Level:</strong>{" "}
+              <span className="font-semibold">{riskLevel}</span>
+            </p>
+          )}
+
+          <ul className="list-disc pl-5 text-sm">
             {insights.map((i, idx) => (
               <li key={idx}>{i}</li>
             ))}
           </ul>
+
+          {recommendation && (
+            <p className="text-sm mt-2">
+              <strong>Recommendation:</strong> {recommendation}
+            </p>
+          )}
         </div>
       )}
 
-      {/* 🔹 CHARTS */}
+      {/* CHARTS */}
       {sortedLogs.length > 0 && (
         <div className="space-y-8">
-          <HealthTrendChart title="Mental Health Trends" labels={labels} datasets={mentalDataset} />
-          <HealthTrendChart title="Physical Health Trends" labels={labels} datasets={physicalDataset} />
-          <HealthTrendChart title="Social Well-being Trends" labels={labels} datasets={socialDataset} />
+          <HealthTrendChart
+            title="Mental Health Trends"
+            labels={labels}
+            datasets={mentalDataset}
+          />
+          <HealthTrendChart
+            title="Physical Health Trends"
+            labels={labels}
+            datasets={physicalDataset}
+          />
+          <HealthTrendChart
+            title="Social Well-being Trends"
+            labels={labels}
+            datasets={socialDataset}
+          />
         </div>
       )}
     </div>
